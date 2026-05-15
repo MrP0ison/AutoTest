@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AutoTest</string>
+    <string name="accessibility_service_description">自动化测试工具无障碍服务，用于录制和回放操作</string>
+</resources>
