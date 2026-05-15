@@ -3,12 +3,15 @@ package com.tencent.autotest.flutter_auto_test
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
+import android.graphics.Rect
 import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.os.Bundle
 import androidx.annotation.RequiresApi
+import org.json.JSONArray
+import org.json.JSONObject
 
 class AutoTestAccessibilityService : AccessibilityService() {
 
@@ -38,10 +41,25 @@ class AutoTestAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
+        
         val pkg = event.packageName?.toString() ?: ""
         val cls = event.className?.toString() ?: ""
         val text = event.text?.joinToString(" ") ?: ""
         val eventType = event.eventType
+        
+        // 获取坐标信息
+        val bounds = Rect()
+        val source = event.source
+        var x = 0
+        var y = 0
+        if (source != null) {
+            source.getBoundsInScreen(bounds)
+            // 计算中心点坐标
+            x = bounds.centerX()
+            y = bounds.centerY()
+            source.recycle()
+        }
+        
         val action = when (eventType) {
             AccessibilityEvent.TYPE_VIEW_CLICKED -> "click"
             AccessibilityEvent.TYPE_VIEW_LONG_CLICKED -> "long_click"
@@ -51,16 +69,22 @@ class AutoTestAccessibilityService : AccessibilityService() {
             AccessibilityEvent.TYPE_VIEW_FOCUSED -> "focus"
             else -> "unknown"
         }
+        
         val eventData = mapOf(
             "action" to action,
             "packageName" to pkg,
             "className" to cls,
             "text" to text,
+            "x" to x,
+            "y" to y,
             "timestamp" to System.currentTimeMillis()
         )
+        
         if (isRecording) {
             recordedEvents.add(eventData)
+            Log.d("AutoTest", "Recorded: $action @ $pkg | x=$x, y=$y")
         }
+        
         Log.d("AutoTest", "Event: $action @ $pkg")
     }
 
@@ -169,5 +193,69 @@ class AutoTestAccessibilityService : AccessibilityService() {
         isRecording = false
         Log.d("AutoTest", "Recording stopped, ${recordedEvents.size} events")
         return recordedEvents.toList()
+    }
+
+    /**
+     * 获取当前UI树（JSON格式）
+     * maxDepth: 最大递归深度，默认10层
+     */
+    fun getUiTree(maxDepth: Int = 10): String {
+        val root = rootInActiveWindow ?: return "[]"
+        val tree = traverseNode(root, 0, maxDepth)
+        root.recycle()
+        
+        val array = JSONArray()
+        array.put(tree)
+        return array.toString(2)
+    }
+
+    /**
+     * 递归遍历节点
+     */
+    private fun traverseNode(node: AccessibilityNodeInfo, depth: Int, maxDepth: Int): JSONObject {
+        val result = JSONObject()
+        
+        if (depth >= maxDepth) {
+            result.put("truncated", true)
+            result.put("depth", depth)
+            return result
+        }
+
+        // 基本信息
+        result.put("className", node.className)
+        result.put("text", node.text)
+        result.put("contentDescription", node.contentDescription)
+        result.put("isClickable", node.isClickable)
+        result.put("isEditable", node.isEditable)
+        result.put("isFocusable", node.isFocusable)
+        result.put("isScrollable", node.isScrollable)
+        result.put("isEnabled", node.isEnabled)
+        result.put("viewIdResourceName", node.viewIdResourceName)
+        
+        // 坐标信息
+        val bounds = Rect()
+        node.getBoundsInScreen(bounds)
+        val boundsObj = JSONObject()
+        boundsObj.put("left", bounds.left)
+        boundsObj.put("top", bounds.top)
+        boundsObj.put("right", bounds.right)
+        boundsObj.put("bottom", bounds.bottom)
+        boundsObj.put("centerX", bounds.centerX())
+        boundsObj.put("centerY", bounds.centerY())
+        result.put("bounds", boundsObj)
+        
+        // 子节点（限制最多50个子节点）
+        if (node.childCount > 0 && depth < maxDepth) {
+            val children = JSONArray()
+            val limit = minOf(node.childCount, 50)
+            for (i in 0 until limit) {
+                val child = node.getChild(i) ?: continue
+                children.put(traverseNode(child, depth + 1, maxDepth))
+                child.recycle()
+            }
+            result.put("children", children)
+        }
+        
+        return result
     }
 }

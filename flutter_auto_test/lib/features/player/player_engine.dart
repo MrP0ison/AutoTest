@@ -13,6 +13,9 @@ import '../../models/performance_data.dart';
 import '../../core/performance_monitor/performance_monitor.dart';
 import '../../core/report_generator/report_generator.dart';
 
+/// 回放进度回调
+typedef ProgressCallback = void Function(int currentStep, int totalSteps, String currentAction);
+
 class PlayerEngine {
   static final PlayerEngine _instance = PlayerEngine._internal();
   factory PlayerEngine() => _instance;
@@ -24,6 +27,9 @@ class PlayerEngine {
   final List<StepResult> _stepResults = [];
 
   TestReport? _currentReport;
+  
+  /// 进度回调
+  ProgressCallback? onProgress;
 
   Future<TestReport> execute(TestCase testCase) async {
     _stepResults.clear();
@@ -42,8 +48,13 @@ class PlayerEngine {
 
     for (var i = 0; i < testCase.actions.length; i++) {
       final action = testCase.actions[i];
+      
+      // 回调进度
+      onProgress?.call(i + 1, testCase.actions.length, action.actionType);
+      
       final result = await _executeAction(action, i);
       _stepResults.add(result);
+      
       if (!result.passed) {
         _currentReport!.status = TestStatus.failed;
         _currentReport!.failureReason = result.errorMsg;

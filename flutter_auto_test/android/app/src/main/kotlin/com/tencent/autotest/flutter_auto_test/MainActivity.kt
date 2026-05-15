@@ -108,6 +108,11 @@ class MainActivity : FlutterActivity() {
                         val events = AutoTestAccessibilityService.instance?.stopRecording()
                         result.success(events)
                     }
+                    "getUiTree" -> {
+                        val maxDepth = call.argument<Int>("maxDepth") ?: 10
+                        val tree = AutoTestAccessibilityService.instance?.getUiTree(maxDepth)
+                        result.success(tree)
+                    }
                     else -> result.notImplemented()
                 }
             }

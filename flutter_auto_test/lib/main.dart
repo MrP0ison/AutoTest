@@ -9,6 +9,8 @@ import 'ui/pages/accounts_page.dart';
 import 'ui/pages/settings_page.dart';
 import 'ui/pages/import_page.dart';
 import 'ui/pages/app_selector_page.dart';
+import 'ui/pages/app_structure_page.dart';
+import 'ui/pages/test_recommend_page.dart';
 
 void main() {
   runApp(const AutoTestApp());
@@ -45,6 +47,23 @@ class AutoTestApp extends StatelessWidget {
         '/settings': (context) => const SettingsPage(),
         '/import': (context) => const ImportPage(),
         '/app_selector': (context) => const AppSelectorPage(),
+      },
+      onGenerateRoute: (settings) {
+        if (settings.name == '/app_structure') {
+          return MaterialPageRoute(
+            builder: (context) => const AppStructurePage(),
+          );
+        }
+        if (settings.name == '/test_recommend') {
+          final args = settings.arguments as Map<String, String>;
+          return MaterialPageRoute(
+            builder: (context) => TestRecommendPage(
+              targetPackage: args['packageName']!,
+              targetAppName: args['appName']!,
+            ),
+          );
+        }
+        return null;
       },
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

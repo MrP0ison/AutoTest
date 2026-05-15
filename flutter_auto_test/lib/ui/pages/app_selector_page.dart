@@ -47,7 +47,17 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
                   leading: const Icon(Icons.android),
                   title: Text(app['appName'] ?? '未知'),
                   subtitle: Text(app['packageName'] ?? ''),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.analytics, color: Colors.blue),
+                        onPressed: () => _analyzeApp(app),
+                        tooltip: '分析',
+                      ),
+                      const Icon(Icons.chevron_right),
+                    ],
+                  ),
                   onTap: () {
                     Navigator.pop(context, app['packageName']);
                   },
@@ -56,13 +66,29 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          // TODO: 启动微信小程序（输入 appId 或原始 ID）
           _showMiniProgramDialog();
         },
         icon: const Icon(Icons.games),
         label: const Text('微信小程序'),
       ),
     );
+  }
+
+  Future<void> _analyzeApp(Map<String, String> app) async {
+    try {
+      final result = await Navigator.pushNamed(
+        context,
+        '/app_structure',
+        arguments: {
+          'packageName': app['packageName'],
+          'appName': app['appName'],
+        },
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('分析失败: $e')),
+      );
+    }
   }
 
   void _showMiniProgramDialog() {
