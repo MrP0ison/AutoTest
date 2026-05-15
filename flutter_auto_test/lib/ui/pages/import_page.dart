@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart';
+import '../../core/file/file_saver.dart';
 import '../../features/importer/excel_importer.dart';
 import '../../features/importer/csv_importer.dart';
 import '../../models/test_case.dart';
@@ -17,43 +19,62 @@ class ImportPage extends StatefulWidget {
 class _ImportPageState extends State<ImportPage> {
   bool _isImporting = false;
   String _log = '';
+  String _templateContent = '';
 
-  /// 生成示例CSV模板
-  Future<File> _generateTemplate() async {
-    final csvContent = '''
-用例名称,目标APP包名,目标APP名称,步骤,操作类型,X坐标,Y坐标,结束X,结束Y,输入文本,元素标识,等待(ms),持续(ms),备注
-登录功能测试,com.example.app,示例APP,1,click,540,960,,,登录按钮,1000,,点击登录按钮
-登录功能测试,com.example.app,示例APP,2,input,,,,,testuser,用户名输入框,500,,输入用户名
-登录功能测试,com.example.app,示例APP,3,input,,,,,password123,密码输入框,500,,输入密码
-登录功能测试,com.example.app,示例APP,4,click,540,1200,,,,确认登录按钮,1000,,点击确认登录
-登录功能测试,com.example.app,示例APP,5,swipe,540,1600,540,400,,,500,300,上滑查看内容
-''';
-
-    final dir = await getApplicationDocumentsDirectory();
-    final file = File('${dir.path}/test_case_template.csv');
-    await file.writeAsString(csvContent);
-    return file;
+  @override
+  void initState() {
+    super.initState();
+    _generateTemplate();
   }
 
+  /// 生成示例 CSV 模板内容
+  Future<void> _generateTemplate() async {
+    _templateContent = '用例名称,目标APP包名,目标APP名称,步骤,操作类型,X坐标,Y坐标,结束X,结束Y,输入文本,元素标识,等待(ms),持续(ms),备注\n'
+        '登录功能测试,com.example.app,示例APP,1,click,540,960,,,登录按钮,1000,,点击登录按钮\n'
+        '登录功能测试,com.example.app,示例APP,2,input,,,,,testuser,用户名输入框,500,,输入用户名\n'
+        '登录功能测试,com.example.app,示例APP,3,input,,,,,password123,密码输入框,500,,输入密码\n'
+        '登录功能测试,com.example.app,示例APP,4,click,540,1200,,,,确认登录按钮,1000,,点击确认登录\n'
+        '登录功能测试,com.example.app,示例APP,5,swipe,540,1600,540,400,,,500,300,上滑查看内容\n';
+  }
+
+  /// 下载模板 - 让用户选择保存位置
   Future<void> _downloadTemplate() async {
     try {
-      final file = await _generateTemplate();
-      setState(() {
-        _log = '模板已生成：${file.path}\n';
-      });
+      final filePath = await FileSaver.saveTextFile(
+        context: context,
+        fileName: 'test_case_template.csv',
+        content: _templateContent,
+      );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('模板已保存：${file.path}')),
-        );
+      if (filePath != null) {
+        setState(() {
+          _log = '模板已保存：$filePath\n';
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('模板下载成功'),
+              action: SnackBarAction(
+                label: '打开',
+                onPressed: () => FileSaver.openFile(filePath),
+              ),
+            ),
+          );
+        }
+      } else {
+        setState(() {
+          _log = '已取消保存\n';
+        });
       }
     } catch (e) {
       setState(() {
-        _log = '生成模板失败：$e\n';
+        _log = '下载模板失败：$e\n';
       });
     }
   }
 
+  /// 选择文件并导入
   Future<void> _pickAndImport() async {
     setState(() {
       _isImporting = true;

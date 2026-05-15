@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'performance_chart_page.dart';
 import '../../core/report_generator/html_report_builder.dart';
 import '../../core/report_generator/excel_report_builder.dart';
+import '../../core/file/file_saver.dart';
 import '../../models/test_report.dart';
 
 class ReportsPage extends StatefulWidget {
@@ -61,6 +62,11 @@ class _ReportsPageState extends State<ReportsPage> {
             onPressed: () => _loadReports(),
             tooltip: '刷新',
           ),
+          IconButton(
+            icon: const Icon(Icons.delete_forever, color: Colors.red),
+            onPressed: _confirmDeleteAll,
+            tooltip: '清空所有报告',
+          ),
         ],
       ),
       body: _loading
@@ -85,6 +91,11 @@ class _ReportsPageState extends State<ReportsPage> {
                                 color: Colors.blue),
                             onPressed: () => _exportReport(context, file.path),
                             tooltip: '导出',
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => _deleteReport(context, file.path),
+                            tooltip: '删除',
                           ),
                           const Icon(Icons.chevron_right),
                         ],
@@ -180,26 +191,146 @@ class _ReportsPageState extends State<ReportsPage> {
 
         // 生成 HTML 报告
         final htmlFile = await HtmlReportBuilder.build(report);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已生成HTML报告：${htmlFile.path}')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('已生成HTML报告：${htmlFile.path}'),
+              action: SnackBarAction(
+                label: '打开',
+                onPressed: () => FileSaver.openFile(htmlFile.path),
+              ),
+            ),
+          );
+        }
 
         // 生成 Excel 报告
         final excelFile = await ExcelReportBuilder.build(report);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已生成Excel报告：${excelFile.path}')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('已生成Excel报告：${excelFile.path}'),
+              action: SnackBarAction(
+                label: '打开',
+                onPressed: () => FileSaver.openFile(excelFile.path),
+              ),
+            ),
+          );
+        }
+
+        _loadReports(); // 刷新列表
       } else {
+        // 直接导出已有文件（让用户选择保存位置）
+        final fileName = path.split('/').last;
+        final bytes = await File(path).readAsBytes();
+        final savedPath = await FileSaver.saveFile(
+          context: context,
+          fileName: fileName,
+          bytes: bytes,
+        );
+
+        if (savedPath != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('已导出：$savedPath'),
+              action: SnackBarAction(
+                label: '打开',
+                onPressed: () => FileSaver.openFile(savedPath),
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('文件已存在：$path')),
+          SnackBar(content: Text('导出失败：$e')),
         );
       }
+    }
+  }
 
-      _loadReports(); // 刷新列表
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('导出失败：$e')),
-      );
+  Future<void> _deleteReport(BuildContext context, String path) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认删除'),
+        content: Text('确定要删除 "${path.split('/').last}" 吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final file = File(path);
+        await file.delete();
+        setState(() {
+          _files.removeWhere((f) => f.path == path);
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('已删除')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('删除失败：$e')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteAll() async {
+    if (_files.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认清空'),
+        content: const Text('确定要删除所有报告吗？此操作不可恢复！'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('清空', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        for (final file in _files) {
+          await File(file.path).delete();
+        }
+        setState(() {
+          _files.clear();
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('已清空所有报告')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('清空失败：$e')),
+          );
+        }
+      }
     }
   }
 }

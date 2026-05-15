@@ -56,6 +56,15 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
+        <!-- system_alert_window 悬浮窗 Activity -->
+        <activity
+            android:name="com.pravera.flutter_website_community.system_alert_window.SystemAlertWindowActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:resizeableActivity="true" />
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

@@ -9,6 +9,7 @@ import 'ui/pages/accounts_page.dart';
 import 'ui/pages/settings_page.dart';
 import 'ui/pages/import_page.dart';
 import 'ui/pages/app_selector_page.dart';
+import 'ui/pages/mini_program_page.dart';
 import 'ui/pages/app_structure_page.dart';
 import 'ui/pages/test_recommend_page.dart';
 
@@ -41,12 +42,19 @@ class AutoTestApp extends StatelessWidget {
       home: const HomePage(),
       routes: {
         '/recorder': (context) => const RecorderPage(),
-        '/player': (context) => const PlayerPage(),
+        '/player': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as Map<String, String>?;
+          return PlayerPage(
+            targetPackage: args?['targetPackage'],
+            targetAppName: args?['targetAppName'],
+          );
+        },
         '/reports': (context) => const ReportsPage(),
         '/accounts': (context) => const AccountsPage(),
         '/settings': (context) => const SettingsPage(),
         '/import': (context) => const ImportPage(),
         '/app_selector': (context) => const AppSelectorPage(),
+        '/mini_program': (context) => const MiniProgramPage(),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/app_structure') {

@@ -7,7 +7,10 @@ import '../../features/player/player_engine.dart';
 import '../../models/test_case.dart';
 
 class PlayerPage extends StatefulWidget {
-  const PlayerPage({super.key});
+  final String? targetPackage;
+  final String? targetAppName;
+  
+  const PlayerPage({super.key, this.targetPackage, this.targetAppName});
 
   @override
   State<PlayerPage> createState() => _PlayerPageState();
@@ -65,7 +68,15 @@ class _PlayerPageState extends State<PlayerPage> {
           final content = await file.readAsString();
           final json = jsonDecode(content) as Map<String, dynamic>;
           final testCase = TestCase.fromJson(json);
-          cases.add(testCase);
+          
+          // 如果指定了目标包名，则只显示匹配的用例
+          if (widget.targetPackage != null && widget.targetPackage!.isNotEmpty) {
+            if (testCase.targetAppPackage == widget.targetPackage) {
+              cases.add(testCase);
+            }
+          } else {
+            cases.add(testCase);
+          }
         } catch (e) {
           print('加载用例失败 ${file.path}: $e');
         }
@@ -78,6 +89,9 @@ class _PlayerPageState extends State<PlayerPage> {
         _cases.clear();
         _cases.addAll(cases);
         _log = '已加载 ${_cases.length} 个用例\n';
+        if (widget.targetAppName != null && widget.targetAppName!.isNotEmpty) {
+          _log += '过滤条件：${widget.targetAppName}\n';
+        }
       });
     } catch (e) {
       setState(() {
@@ -186,13 +200,23 @@ class _PlayerPageState extends State<PlayerPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('回放执行'),
+        title: Text(widget.targetAppName != null && widget.targetAppName!.isNotEmpty
+            ? '回放执行 - ${widget.targetAppName}'
+            : '回放执行'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _isRunning ? null : _loadTestCases,
             tooltip: '刷新用例列表',
           ),
+          if (widget.targetPackage != null && widget.targetPackage!.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.clear),
+              onPressed: () {
+                Navigator.pushReplacementNamed(context, '/player');
+              },
+              tooltip: '清除过滤',
+            ),
         ],
       ),
       body: Padding(
@@ -200,6 +224,27 @@ class _PlayerPageState extends State<PlayerPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.targetAppName != null && widget.targetAppName!.isNotEmpty)
+              Card(
+                color: Colors.blue.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info, color: Colors.blue),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '当前过滤：${widget.targetAppName} (${widget.targetPackage})',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (widget.targetAppName != null && widget.targetAppName!.isNotEmpty)
+              const SizedBox(height: 12),
             Text('已保存用例（${_cases.length} 个）',
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),

@@ -123,10 +123,16 @@ class _HomePageState extends State<HomePage> {
         route: '/import',
       ),
       _FeatureItem(
-        icon: Icons.apps,
-        label: '目标APP',
+        icon: Icons.android,
+        label: '选择APP',
         color: Colors.orange,
         route: '/app_selector',
+      ),
+      _FeatureItem(
+        icon: Icons.games,
+        label: '小程序',
+        color: Colors.green,
+        route: '/mini_program',
       ),
     ];
 

@@ -21,6 +21,7 @@ class MainActivity : FlutterActivity() {
     companion object {
         const val ACCESSIBILITY_CHANNEL = "com.tencent.autotest/accessibility"
         const val PERFORMANCE_CHANNEL = "com.tencent.autotest/performance"
+        const val FILE_CHANNEL = "com.tencent.autotest/file"
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -113,6 +114,18 @@ class MainActivity : FlutterActivity() {
                         val tree = AutoTestAccessibilityService.instance?.getUiTree(maxDepth)
                         result.success(tree)
                     }
+                    // 悬浮窗控制
+                    "showFloatingWindow" -> {
+                        AutoTestAccessibilityService.instance?.showFloatingWindow()
+                        result.success(true)
+                    }
+                    "hideFloatingWindow" -> {
+                        AutoTestAccessibilityService.instance?.hideFloatingWindow()
+                        result.success(true)
+                    }
+                    "isFloatingWindowShowing" -> {
+                        result.success(AutoTestAccessibilityService.isFloatingShowing)
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -149,6 +162,45 @@ class MainActivity : FlutterActivity() {
                     }
                 } catch (e: Exception) {
                     result.error("ERROR", e.message, null)
+                }
+            }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, FILE_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "openFile" -> {
+                        val path = call.argument<String>("path") ?: ""
+                        if (path.isEmpty()) {
+                            result.error("INVALID", "Path is empty", null)
+                            return@setMethodCallHandler
+                        }
+                        try {
+                            val file = File(path)
+                            val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                                android.net.Uri.parse("content://$packageName.fileprovider/$path")
+                            } else {
+                                android.net.Uri.fromFile(file)
+                            }
+                            val intent = Intent(Intent.ACTION_VIEW)
+                            val mimeType = when {
+                                path.endsWith(".pdf") -> "application/pdf"
+                                path.endsWith(".xlsx") -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                path.endsWith(".xls") -> "application/vnd.ms-excel"
+                                path.endsWith(".csv") -> "text/csv"
+                                path.endsWith(".json") -> "application/json"
+                                path.endsWith(".html") -> "text/html"
+                                path.endsWith(".txt") -> "text/plain"
+                                else -> "*/*"
+                            }
+                            intent.setDataAndType(android.net.Uri.fromFile(file), mimeType)
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("OPEN_FAILED", e.message, null)
+                        }
+                    }
+                    else -> result.notImplemented()
                 }
             }
     }

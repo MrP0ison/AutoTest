@@ -3,7 +3,7 @@ description: 腾讯自动化测试工具 - 支持APP/小程序/网页的Flutter�
 
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 2.1.1+2
 
 environment:
   sdk: ">=3.0.0 <4.0.0"

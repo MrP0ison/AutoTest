@@ -3,9 +3,17 @@ package com.tencent.autotest.flutter_auto_test
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
+import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.os.Build
 import android.util.Log
+import android.view.Gravity
+import android.view.LayoutInflater
+import android.view.View
+import android.view.WindowManager
+import android.widget.Button
+import android.widget.ImageButton
+import android.widget.TextView
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.os.Bundle
@@ -20,6 +28,11 @@ class AutoTestAccessibilityService : AccessibilityService() {
         var instance: AutoTestAccessibilityService? = null
         val recordedEvents = mutableListOf<Map<String, Any?>>()
         var isRecording = false
+        
+        // 悬浮窗相关
+        var floatingWindow: View? = null
+        var windowManager: WindowManager? = null
+        var isFloatingShowing = false
     }
 
     override fun onServiceConnected() {
@@ -37,6 +50,9 @@ class AutoTestAccessibilityService : AccessibilityService() {
         info.packageNames = null
         info.notificationTimeout = 50
         this.serviceInfo = info
+        
+        // 初始化 WindowManager
+        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -139,6 +155,101 @@ class AutoTestAccessibilityService : AccessibilityService() {
 
     fun performBack(): Boolean {
         return performGlobalAction(GLOBAL_ACTION_BACK)
+    }
+
+    /// 显示悬浮窗控制面板
+    fun showFloatingWindow() {
+        if (isFloatingShowing) return
+        
+        try {
+            // 创建悬浮窗布局
+            floatingWindow = LayoutInflater.from(this).inflate(R.layout.floating_control_panel, null)
+            
+            // 设置 WindowManager 布局参数
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) 
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY 
+                else 
+                    WindowManager.LayoutParams.TYPE_PHONE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                PixelFormat.TRANSLUCENT
+            )
+            params.gravity = Gravity.TOP or Gravity.START
+            params.x = 0
+            params.y = 100
+            
+            // 添加悬浮窗
+            windowManager?.addView(floatingWindow, params)
+            isFloatingShowing = true
+            
+            // 设置按钮点击事件
+            setupFloatingButtons(floatingWindow!!, params)
+            
+            Log.d("AutoTest", "Floating window shown")
+        } catch (e: Exception) {
+            Log.e("AutoTest", "Show floating window failed: ${e.message}")
+        }
+    }
+
+    /// 隐藏悬浮窗控制面板
+    fun hideFloatingWindow() {
+        if (!isFloatingShowing || floatingWindow == null) return
+        
+        try {
+            windowManager?.removeView(floatingWindow)
+            floatingWindow = null
+            isFloatingShowing = false
+            Log.d("AutoTest", "Floating window hidden")
+        } catch (e: Exception) {
+            Log.e("AutoTest", "Hide floating window failed: ${e.message}")
+        }
+    }
+
+    /// 设置悬浮窗按钮点击事件
+    private fun setupFloatingButtons(view: View, params: WindowManager.LayoutParams) {
+        val btnRecord = view.findViewById<Button>(R.id.btn_record)
+        val btnPlay = view.findViewById<Button>(R.id.btn_play)
+        val btnStop = view.findViewById<Button>(R.id.btn_stop)
+        val btnClose = view.findViewById<Button>(R.id.btn_close)
+        val btnDrag = view.findViewById<ImageButton>(R.id.btn_drag)
+        
+        btnRecord?.setOnClickListener {
+            if (!isRecording) {
+                startRecording()
+                btnRecord.text = "停止录制"
+                Log.d("AutoTest", "Floating: Start recording")
+            } else {
+                stopRecording()
+                btnRecord.text = "录制"
+                Log.d("AutoTest", "Floating: Stop recording")
+            }
+        }
+        
+        btnPlay?.setOnClickListener {
+            Log.d("AutoTest", "Floating: Start playback")
+            // 回放逻辑需要在 Flutter 端实现
+        }
+        
+        btnStop?.setOnClickListener {
+            if (isRecording) {
+                stopRecording()
+                btnRecord?.text = "录制"
+            }
+            Log.d("AutoTest", "Floating: Stop all")
+        }
+        
+        btnClose?.setOnClickListener {
+            hideFloatingWindow()
+        }
+        
+        // 拖动功能
+        btnDrag?.setOnTouchListener { _, event ->
+            // 简化版：点击拖动区域可以移动悬浮窗
+            Log.d("AutoTest", "Floating: Drag")
+            true
+        }
     }
 
     fun performClickOnNode(text: String? = null, id: String? = null): Boolean {
