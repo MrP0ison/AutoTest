@@ -1,0 +1,67 @@
+name: Build and Release
+
+# 触发条件：推送 tag 时自动构建
+on:
+  push:
+    tags:
+      - 'v*'
+
+# 权限：需要写入 contents（创建 Release）和 packages（上传 APK）
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: 'stable'
+          
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          
+      - name: Install dependencies
+        run: flutter pub get
+        
+      - name: Build release APK
+        run: flutter build apk --release
+        
+      - name: Rename APK
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          cp build/app/outputs/flutter-apk/app-release.apk "AutoTest_v${VERSION}.apk"
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "AutoTest_v*.apk"
+          body: |
+            ## AutoTest V${GITHUB_REF#refs/tags/v} 版本发布
+            
+            ### 安装说明
+            ```bash
+            adb install AutoTest_v${GITHUB_REF#refs/tags/v}.apk
+            ```
+            
+            ### 权限配置
+            1. 无障碍服务：设置 → 无障碍 → AutoTest → 开启
+            2. 悬浮窗权限：设置 → 应用管理 → AutoTest → 悬浮窗 → 允许
+            
+            ### 完整更新说明
+            请查看仓库中的 `release_notes_v${GITHUB_REF#refs/tags/v}.md`
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
